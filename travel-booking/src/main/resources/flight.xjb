@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<jaxb:bindings
+    xmlns:jaxb="https://jakarta.ee/xml/ns/jaxb"
+    xmlns:xs="http://www.w3.org/2001/XMLSchema"
+    xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/"
+    xmlns:annox="urn:jaxb.jvnet.org:annox"
+    jaxb:extensionBindingPrefixes="annox"
+    version="3.0">
+
+    <jaxb:bindings
+        schemaLocation="flight.wsdl"
+        node="/wsdl:definitions/wsdl:types/xs:schema[@targetNamespace='http://flight.bp.org/']">
+
+        <jaxb:bindings
+            node="xs:complexType[@name='bookFligth']">
+
+            <annox:annotateClass>@jakarta.xml.bind.annotation.XmlRootElement(name="bookFligth", namespace="http://flight.bp.org/")</annox:annotateClass>
+
+        </jaxb:bindings>
+
+    </jaxb:bindings>
+
+</jaxb:bindings>
+
