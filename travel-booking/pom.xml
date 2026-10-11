@@ -31,6 +31,15 @@
     </properties>
     <dependencies>
         <dependency>
+            <groupId>jakarta.xml.bind</groupId>
+            <artifactId>jakarta.xml.bind-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.glassfish.jaxb</groupId>
+            <artifactId>jaxb-runtime</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-webmvc</artifactId>
         </dependency>
@@ -53,70 +62,115 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
             </plugin>
-
-
             <plugin>
-                <groupId>org.jvnet.jaxb</groupId>
-                <artifactId>jaxb-maven-plugin</artifactId>
-                <version>4.0.16</version>
-
+                <groupId>org.openapitools</groupId>
+                <artifactId>openapi-generator-maven-plugin</artifactId>
+                <version>7.26.0</version>
                 <executions>
                     <execution>
-                        <id>generate-flight</id>
+                        <id>generate-payment</id>
                         <phase>generate-sources</phase>
                         <goals>
                             <goal>generate</goal>
                         </goals>
                         <configuration>
-                            <schemaLanguage>WSDL</schemaLanguage>
-                            <generatePackage>org.bp.flight</generatePackage>
-
-                            <schemaDirectory>
-                                ${project.basedir}/src/main/resources
-                            </schemaDirectory>
-
-                            <schemaIncludes>
-                                <include>flight.wsdl</include>
-                            </schemaIncludes>
-
-                            <generateDirectory>
-                                ${project.build.directory}/generated-sources/jaxb/flight
-                            </generateDirectory>
-                            <bindingDirectory>
-                                ${project.basedir}/src/main/resources
-                            </bindingDirectory>
-                            <bindingIncludes>
-                                <include>flight.xjb</include>
-                            </bindingIncludes>
+                            <inputSpec>${project.basedir}/src/main/resources/payment.json</inputSpec>
+                            <generatorName>java</generatorName>
+                            <library>resttemplate</library>
+                            <modelPackage>org.bp.payment</modelPackage>
+                            <output>${project.build.directory}/generated-sources/openapi/payment</output>
+                            <generateApis>false</generateApis>
+                            <generateSupportingFiles>false</generateSupportingFiles>
+                            <generateModelDocumentation>false</generateModelDocumentation>
+                            <generateModelTests>false</generateModelTests>
+                            <generateApiTests>false</generateApiTests>
+                            <skip>false</skip>
+                            <configOptions>
+                                <dateLibrary>java8</dateLibrary>
+                                <useJakartaEe>true</useJakartaEe>
+                                <useSpringBoot4>true</useSpringBoot4>
+                                <useJackson3>true</useJackson3>
+                                <openApiNullable>false</openApiNullable>
+                                <annotationLibrary>none</annotationLibrary>
+                                <hideGenerationTimestamp>true</hideGenerationTimestamp>
+                            </configOptions>
                         </configuration>
                     </execution>
-<!--
-                    <execution>
-                        <id>generate-hotel-booking</id>
-                        <phase>generate-sources</phase>
-                        <goals>
-                            <goal>generate</goal>
-                        </goals>
-                        <configuration>
-                            <schemaLanguage>WSDL</schemaLanguage>
-                            <generatePackage>org.bp.payment</generatePackage>
-
-                            <schemaDirectory>
-                                ${project.basedir}/src/main/resources
-                            </schemaDirectory>
-
-                            <schemaIncludes>
-                                <include>HotelBooking.wsdl</include>
-                            </schemaIncludes>
-
-                            <generateDirectory>
-                                ${project.build.directory}/generated-sources/jaxb/hotel-booking
-                            </generateDirectory>
-                        </configuration>
-                    </execution>
-                    -->
                 </executions>
             </plugin>
+
+
+<plugin>
+    <groupId>org.jvnet.jaxb</groupId>
+    <artifactId>jaxb-maven-plugin</artifactId>
+    <version>4.0.16</version>
+
+    <executions>
+        <execution>
+            <id>generate-flight</id>
+            <phase>generate-sources</phase>
+            <goals>
+                <goal>generate</goal>
+            </goals>
+            <configuration>
+                <schemaLanguage>WSDL</schemaLanguage>
+                <generatePackage>org.bp.flight</generatePackage>
+
+                <schemaDirectory>
+                    ${project.basedir}/src/main/resources
+                </schemaDirectory>
+
+                <schemaIncludes>
+                    <include>flight.wsdl</include>
+                </schemaIncludes>
+
+                <generateDirectory>
+                    ${project.build.directory}/generated-sources/jaxb/flight
+                </generateDirectory>
+                <bindingDirectory>
+                    ${project.basedir}/src/main/resources
+                </bindingDirectory>
+                <bindingIncludes>
+                    <include>flight.xjb</include>
+                </bindingIncludes>
+                <extension>true</extension>
+                <args>
+                    <arg>-Xannotate</arg>
+                </args>
+                <plugins>
+                    <plugin>
+                        <groupId>org.jvnet.jaxb</groupId>
+                        <artifactId>jaxb-plugin-annotate</artifactId>
+                        <version>4.0.16</version>
+                    </plugin>
+                </plugins>
+            </configuration>
+        </execution>
+        <execution>
+            <id>generate-hotel-booking</id>
+            <phase>generate-sources</phase>
+            <goals>
+                <goal>generate</goal>
+            </goals>
+            <configuration>
+                <schemaLanguage>WSDL</schemaLanguage>
+                <generatePackage>org.bp</generatePackage>
+                <schemaDirectory>
+                    ${project.basedir}/src/main/resources
+                </schemaDirectory>
+                <schemaIncludes>
+                    <include>HotelBooking.wsdl</include>
+                </schemaIncludes>
+                <generateDirectory>
+                    ${project.build.directory}/generated-sources/jaxb/hotel-booking
+                </generateDirectory>
+                <bindingExcludes>
+                    <exclude>**/*.xjb</exclude>
+                </bindingExcludes>
+            </configuration>
+        </execution>
+    </executions>
+</plugin>
 
 
         </plugins>

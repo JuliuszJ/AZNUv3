@@ -11,15 +11,21 @@
     <jaxb:bindings
         schemaLocation="flight.wsdl"
         node="/wsdl:definitions/wsdl:types/xs:schema[@targetNamespace='http://flight.bp.org/']">
-
         <jaxb:bindings
             node="xs:complexType[@name='bookFligth']">
-
             <annox:annotateClass>@jakarta.xml.bind.annotation.XmlRootElement(name="bookFligth", namespace="http://flight.bp.org/")</annox:annotateClass>
-
         </jaxb:bindings>
 
     </jaxb:bindings>
 
+    <jaxb:bindings
+        schemaLocation="flight.wsdl"
+        node="/wsdl:definitions/wsdl:types/xs:schema[@targetNamespace='http://flight.bp.org/']">
+        <jaxb:bindings
+            node="xs:complexType[@name='cancelBooking']">
+            <annox:annotateClass>@jakarta.xml.bind.annotation.XmlRootElement(name="cancelBooking", namespace="http://flight.bp.org/")</annox:annotateClass>
+        </jaxb:bindings>
+
+    </jaxb:bindings>
 </jaxb:bindings>
 
