@@ -17,7 +17,7 @@ public class FlightService {
 			if (fligth!=null && fligth.getFrom() !=null && fligth.getFrom().getAirport()!=null
 					&& fligth.getTo()!=null && fligth.getFrom().getAirport().equals(fligth.getTo().getAirport())
 					) {
-				Fault fault = new Fault();
+				Fault fault = new Fault("Flight is not available");
 				fault.setCode(5);
 				fault.setText("Start and destination airport can not be the same");
 				throw fault;

@@ -19,5 +19,8 @@ public class Fault  extends Exception {
 	public void setText(String text) {
 		this.text = text;
 	}
+	public Fault(String message) {
+		super(message);
+	}
 
 }
