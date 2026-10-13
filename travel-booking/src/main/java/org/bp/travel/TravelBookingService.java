@@ -1,19 +1,18 @@
 package org.bp.travel;
 
-import java.math.BigDecimal;
 import org.apache.camel.Exchange;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.converter.jaxb.JaxbDataFormat;
+import org.apache.camel.http.base.HttpOperationFailedException;
 import org.apache.camel.model.SagaPropagation;
 import org.apache.camel.model.dataformat.JsonLibrary;
-import org.springframework.stereotype.Component;
 import org.apache.camel.model.rest.RestBindingMode;
+import org.bp.travel.model.BookingErrorResponse;
 import org.bp.travel.model.TravelBookingRequest;
 import org.bp.travel.model.Utils;
-import org.bp.travel.model.BookingErrorResponse;
+import org.springframework.stereotype.Component;
 import org.springframework.ws.soap.client.SoapFaultClientException;
-import org.apache.camel.http.base.HttpOperationFailedException;
-
+import java.math.BigDecimal;
 import static org.apache.camel.model.rest.RestParamType.body;
 
 @Component
