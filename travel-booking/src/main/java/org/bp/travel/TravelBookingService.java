@@ -17,6 +17,7 @@ import static org.apache.camel.model.rest.RestParamType.body;
 
 @Component
 public class TravelBookingService extends RouteBuilder {
+
     private final BookingIdentifierService bookingIdentifierService;
 
     public TravelBookingService(
