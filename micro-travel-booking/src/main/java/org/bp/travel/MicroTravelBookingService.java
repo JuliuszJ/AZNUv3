@@ -1,7 +1,5 @@
 package org.bp.travel;
 
-import static org.apache.camel.model.rest.RestParamType.body;
-
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 
@@ -24,11 +22,12 @@ import org.springframework.stereotype.Component;
 @Component
 public class MicroTravelBookingService extends RouteBuilder {
 
-    private final BookingIdentifierService bookingIdentifierService;
-    private final PaymentService paymentService;
+
     private final StateService flightStateService;
     private final StateService hotelStateService;
     private final BookingInfoService bookingInfoService;
+    private final BookingIdentifierService bookingIdentifierService;
+    private final PaymentService paymentService;
 
     public MicroTravelBookingService(
             BookingIdentifierService bookingIdentifierService,
@@ -45,8 +44,8 @@ public class MicroTravelBookingService extends RouteBuilder {
 
     @Override
     public void configure() throws Exception {
-        bookHotelExceptionHandlers();
         bookFlightExceptionHandlers();
+        bookHotelExceptionHandlers();
         gateway();
         hotel();
         flight();
@@ -238,11 +237,11 @@ public class MicroTravelBookingService extends RouteBuilder {
                                 if (btr!=null && btr.getFlight()!=null && btr.getFlight().getFrom()!=null
                                         && btr.getFlight().getFrom().getAirport()!=null) {
                                     String from=btr.getFlight().getFrom().getAirport();
-                                    if (from.equals("PEK")){
-                                        throw new FlightException("Not serviced airport: "+from);
-                                    }
-                                    else if (from.equals("JFK")) {
+                                    if (from.equals("JFK")) {
                                         bi.setCost(new BigDecimal(700));
+                                    }
+                                    else if (from.equals("PEK")){
+                                        throw new FlightException("Not serviced airport: "+from);
                                     }
                                     else {
                                         bi.setCost(new BigDecimal(600));
