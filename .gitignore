@@ -33,3 +33,16 @@
 
 ### VS Code ###
 **/.vscode/
+
+### LLM assistants ###
+**/TESTING.md
+**/CLAUDE.md
+**/CLAUDE.local.md
+**/.claude/
+**/AGENTS.md
+**/GEMINI.md
+**/.cursor/
+**/.cursorrules
+**/.aider*
+**/.codex/
+**/.github/copilot-instructions.md

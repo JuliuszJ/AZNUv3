@@ -1,6 +1,7 @@
 package org.bp.travel;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -148,18 +149,33 @@ class LegacyBookingFlowTests {
     }
 
     @Test
-    void latePendingResponseDoesNotOverwriteAlreadyReceivedPaymentResult() {
-        String id = UUID.randomUUID().toString();
-        String otherId = UUID.randomUUID().toString();
-        bookingInfoService.save(new BookingInfo().id(otherId).status(BookingInfo.StatusEnum.PENDING));
-        BookingInfo completed = new BookingInfo().id(id).cost(new BigDecimal("1699"))
-            .status(BookingInfo.StatusEnum.DONE);
+    void pendingIsStoredBeforeRequestIsPublished() {
+        List<BookingInfo> storedAtPublication = new ArrayList<>();
+        endpoint("kafka:TravelReqTopic").whenAnyExchangeReceived(exchange -> storedAtPublication.add(
+            bookingInfoService.findById(exchange.getMessage().getHeader("bookingTravelId", String.class))));
+        BookTravelRequest request = json.readValue(request("USA", "JFK"), BookTravelRequest.class);
 
-        consume("gatewayPaymentResult", json.writeValueAsString(completed), id);
-        send("direct:bookRequester", null, Map.of("bookingTravelId", id));
+        BookingInfo info = send("direct:bookTravel", request, Map.of()).getMessage().getBody(BookingInfo.class);
 
-        assertEquals(completed, bookingInfoService.findById(id));
-        assertEquals(BookingInfo.StatusEnum.PENDING, bookingInfoService.findById(otherId).getStatus());
+        assertEquals(List.of(info), storedAtPublication);
+    }
+
+    @Test
+    void fastPaymentResultIsNotOverwrittenByBookingResponse() {
+        BookTravelRequest request = json.readValue(request("USA", "JFK"), BookTravelRequest.class);
+        BookingInfo[] completed = new BookingInfo[1];
+        // Deliver the saga result while the gateway is still handling the HTTP request.
+        endpoint("kafka:TravelReqTopic").whenAnyExchangeReceived(exchange -> {
+            String id = exchange.getMessage().getHeader("bookingTravelId", String.class);
+            completed[0] = new BookingInfo().id(id).cost(new BigDecimal("1699"))
+                .status(BookingInfo.StatusEnum.DONE);
+            consume("gatewayPaymentResult", json.writeValueAsString(completed[0]), id);
+        });
+
+        BookingInfo response = send("direct:bookTravel", request, Map.of()).getMessage().getBody(BookingInfo.class);
+
+        assertEquals(BookingInfo.StatusEnum.PENDING, response.getStatus());
+        assertEquals(completed[0], bookingInfoService.findById(response.getId()));
     }
 
     @Test

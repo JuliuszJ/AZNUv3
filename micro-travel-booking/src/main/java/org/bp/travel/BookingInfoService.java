@@ -16,10 +16,6 @@ public class BookingInfoService {
                 ? current : bookingInfo);
     }
 
-    public void saveIfAbsent(BookingInfo bookingInfo) {
-        bookings.putIfAbsent(bookingInfo.getId(), bookingInfo);
-    }
-
     public BookingInfo findById(String bookingTravelId) {
         return bookings.get(bookingTravelId);
     }

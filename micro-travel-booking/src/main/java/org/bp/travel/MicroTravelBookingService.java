@@ -99,12 +99,17 @@ public class MicroTravelBookingService extends RouteBuilder {
                 .skipBindingOnErrorCode(true)
                 .bindingPackageScan("org.bp.travel.model");
 
-        rest().openApi("travel-booking.yaml");
+        rest().openApi().specification("travel-booking.yaml");
 
         from("direct:bookTravel").routeId("bookTravel")
                 .log("bookTravel fired")
                 .process((exchange) -> {
-                    exchange.getMessage().setHeader("bookingTravelId", bookingIdentifierService.getBookingIdentifier());
+                    String bookingTravelId = bookingIdentifierService.getBookingIdentifier();
+                    exchange.getMessage().setHeader("bookingTravelId", bookingTravelId);
+                    // Store PENDING before publishing, so a fast saga result cannot be overwritten.
+                    bookingInfoService.save(new BookingInfo()
+                            .id(bookingTravelId)
+                            .status(BookingInfo.StatusEnum.PENDING));
                 })
                 .to("direct:TravelBookRequest")
                 .to("direct:bookRequester");
@@ -114,7 +119,6 @@ public class MicroTravelBookingService extends RouteBuilder {
                 .setBody(exchange -> new BookingInfo()
                         .id(exchange.getMessage().getHeader("bookingTravelId", String.class))
                         .status(BookingInfo.StatusEnum.PENDING))
-                .process(exchange -> bookingInfoService.saveIfAbsent(exchange.getMessage().getBody(BookingInfo.class)))
                 .setHeader(Exchange.HTTP_RESPONSE_CODE, constant(202))
         ;
 
