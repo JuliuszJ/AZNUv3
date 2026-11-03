@@ -46,6 +46,7 @@ public class MicroTravelBookingService extends RouteBuilder {
     public void configure() throws Exception {
         bookFlightExceptionHandlers();
         bookHotelExceptionHandlers();
+        bookingCanceled();
         gateway();
         hotel();
         flight();
@@ -133,13 +134,6 @@ public class MicroTravelBookingService extends RouteBuilder {
                 .unmarshal().json(JsonLibrary.Jackson, BookingInfo.class)
                 .process(exchange -> bookingInfoService.save(exchange.getMessage().getBody(BookingInfo.class)));
 
-        from("direct:publishBookingCanceled").routeId("publishBookingCanceled")
-                .setBody(exchange -> new BookingInfo()
-                        .id(exchange.getMessage().getHeader("bookingTravelId", String.class))
-                        .status(BookingInfo.StatusEnum.CANCELED))
-                .marshal().json()
-                .to("kafka:TravelPaymentResultTopic?brokers=localhost:9092");
-
         from("direct:getBookingInfo").routeId("getBookingInfo")
                 .process(exchange -> {
                     String id = exchange.getMessage().getHeader("id", String.class);
@@ -161,6 +155,15 @@ public class MicroTravelBookingService extends RouteBuilder {
                         .convertBodyTo(String.class)
                 .end();
 
+    }
+
+    private void bookingCanceled() {
+        from("direct:publishBookingCanceled").routeId("publishBookingCanceled")
+                .setBody(exchange -> new BookingInfo()
+                        .id(exchange.getMessage().getHeader("bookingTravelId", String.class))
+                        .status(BookingInfo.StatusEnum.CANCELED))
+                .marshal().json()
+                .to("kafka:TravelPaymentResultTopic?brokers=localhost:9092");
     }
 
     private void hotel() {
