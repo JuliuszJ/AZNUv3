@@ -5,6 +5,7 @@ import java.time.OffsetDateTime;
 
 import org.apache.camel.Exchange;
 import org.apache.camel.builder.RouteBuilder;
+import org.apache.camel.component.kafka.KafkaConstants;
 import org.apache.camel.model.dataformat.JsonLibrary;
 import org.apache.camel.model.rest.RestBindingMode;
 import org.apache.camel.model.rest.RestHostNameResolver;
@@ -22,6 +23,10 @@ import org.springframework.stereotype.Component;
 @Component
 public class MicroTravelBookingService extends RouteBuilder {
 
+    @org.springframework.beans.factory.annotation.Value("${travel.kafka.server}")
+    private String travelKafkaServer;
+    @org.springframework.beans.factory.annotation.Value("${travel.service.type}")
+    private String travelServiceType;
 
     private final StateService flightStateService;
     private final StateService hotelStateService;
@@ -44,12 +49,21 @@ public class MicroTravelBookingService extends RouteBuilder {
 
     @Override
     public void configure() throws Exception {
-        bookFlightExceptionHandlers();
-        bookHotelExceptionHandlers();
-        gateway();
-        hotel();
-        flight();
-        payment();
+        if (travelServiceType.equals("all") || travelServiceType.equals("hotel"))
+            bookHotelExceptionHandlers();
+        if (travelServiceType.equals("all") || travelServiceType.equals("flight"))
+            bookFlightExceptionHandlers();
+        if (travelServiceType.equals("all") || travelServiceType.equals("hotel")
+                || travelServiceType.equals("flight"))
+            bookingCanceled();
+        if (travelServiceType.equals("all") || travelServiceType.equals("gateway"))
+            gateway();
+        if (travelServiceType.equals("all") || travelServiceType.equals("hotel"))
+            hotel();
+        if (travelServiceType.equals("all") || travelServiceType.equals("flight"))
+            flight();
+        if (travelServiceType.equals("all") || travelServiceType.equals("payment"))
+            payment();
     }
 
     private void bookHotelExceptionHandlers() {
@@ -65,7 +79,8 @@ public class MicroTravelBookingService extends RouteBuilder {
                 .marshal().json()
                 .to("stream:out")
                 .setHeader("serviceType", constant("hotel"))
-                .to("kafka:TravelBookingFailTopic?brokers=localhost:9092")
+                .setHeader(KafkaConstants.KEY, header("bookingTravelId"))
+                .to("kafka:TravelBookingFailTopic?brokers=" + travelKafkaServer + "&groupId=" + travelServiceType)
                 .to("direct:publishBookingCanceled")
                 .handled(true)
         ;
@@ -84,7 +99,8 @@ public class MicroTravelBookingService extends RouteBuilder {
                 .marshal().json()
                 .to("stream:out")
                 .setHeader("serviceType", constant("flight"))
-                .to("kafka:TravelBookingFailTopic?brokers=localhost:9092")
+                .setHeader(KafkaConstants.KEY, header("bookingTravelId"))
+                .to("kafka:TravelBookingFailTopic?brokers=" + travelKafkaServer + "&groupId=" + travelServiceType)
                 .to("direct:publishBookingCanceled")
                 .handled(true)
         ;
@@ -125,20 +141,14 @@ public class MicroTravelBookingService extends RouteBuilder {
         from("direct:TravelBookRequest").routeId("TravelBookRequest")
                 .log("brokerTopic fired")
                 .marshal().json()
-                .to("kafka:TravelReqTopic?brokers=localhost:9092")
+                .setHeader(KafkaConstants.KEY, header("bookingTravelId"))
+                .to("kafka:TravelReqTopic?brokers=" + travelKafkaServer + "&groupId=" + travelServiceType)
         ;
 
-        from("kafka:TravelPaymentResultTopic?brokers=localhost:9092&groupId=travel-gateway")
+        from("kafka:TravelPaymentResultTopic?brokers=" + travelKafkaServer + "&groupId=" + travelServiceType)
                 .routeId("gatewayPaymentResult")
                 .unmarshal().json(JsonLibrary.Jackson, BookingInfo.class)
                 .process(exchange -> bookingInfoService.save(exchange.getMessage().getBody(BookingInfo.class)));
-
-        from("direct:publishBookingCanceled").routeId("publishBookingCanceled")
-                .setBody(exchange -> new BookingInfo()
-                        .id(exchange.getMessage().getHeader("bookingTravelId", String.class))
-                        .status(BookingInfo.StatusEnum.CANCELED))
-                .marshal().json()
-                .to("kafka:TravelPaymentResultTopic?brokers=localhost:9092");
 
         from("direct:getBookingInfo").routeId("getBookingInfo")
                 .process(exchange -> {
@@ -163,8 +173,18 @@ public class MicroTravelBookingService extends RouteBuilder {
 
     }
 
+    private void bookingCanceled() {
+        from("direct:publishBookingCanceled").routeId("publishBookingCanceled")
+                .setBody(exchange -> new BookingInfo()
+                        .id(exchange.getMessage().getHeader("bookingTravelId", String.class))
+                        .status(BookingInfo.StatusEnum.CANCELED))
+                .marshal().json()
+                .setHeader(KafkaConstants.KEY, header("bookingTravelId"))
+                .to("kafka:TravelPaymentResultTopic?brokers=" + travelKafkaServer + "&groupId=" + travelServiceType);
+    }
+
     private void hotel() {
-        from("kafka:TravelReqTopic?brokers=localhost:9092").routeId("bookHotel")
+        from("kafka:TravelReqTopic?brokers=" + travelKafkaServer + "&groupId=" + travelServiceType).routeId("bookHotel")
                 .log("fired bookHotel")
                 .unmarshal().json(JsonLibrary.Jackson, BookTravelRequest.class)
                 .process(
@@ -201,11 +221,12 @@ public class MicroTravelBookingService extends RouteBuilder {
                 .to("direct:bookHotelCompensationAction")
                 .otherwise()
                 .setHeader("serviceType", constant("hotel"))
-                .to("kafka:BookingInfoTopic?brokers=localhost:9092")
+                .setHeader(KafkaConstants.KEY, header("bookingTravelId"))
+                .to("kafka:BookingInfoTopic?brokers=" + travelKafkaServer + "&groupId=" + travelServiceType)
                 .endChoice()
         ;
 
-        from("kafka:TravelBookingFailTopic?brokers=localhost:9092").routeId("bookHotelCompensation")
+        from("kafka:TravelBookingFailTopic?brokers=" + travelKafkaServer + "&groupId=" + travelServiceType).routeId("bookHotelCompensation")
                 .log("fired bookHotelCompensation")
                 .unmarshal().json(JsonLibrary.Jackson, ExceptionResponse.class)
                 .choice()
@@ -227,7 +248,7 @@ public class MicroTravelBookingService extends RouteBuilder {
     }
 
     private void flight() {
-        from("kafka:TravelReqTopic?brokers=localhost:9092").routeId("bookFlight")
+        from("kafka:TravelReqTopic?brokers=" + travelKafkaServer + "&groupId=" + travelServiceType).routeId("bookFlight")
                 .log("fired bookFlight")
                 .unmarshal().json(JsonLibrary.Jackson, BookTravelRequest.class)
                 .process(
@@ -265,11 +286,12 @@ public class MicroTravelBookingService extends RouteBuilder {
                 .to("direct:bookFlightCompensationAction")
                 .otherwise()
                 .setHeader("serviceType", constant("flight"))
-                .to("kafka:BookingInfoTopic?brokers=localhost:9092")
+                .setHeader(KafkaConstants.KEY, header("bookingTravelId"))
+                .to("kafka:BookingInfoTopic?brokers=" + travelKafkaServer + "&groupId=" + travelServiceType)
                 .endChoice()
         ;
 
-        from("kafka:TravelBookingFailTopic?brokers=localhost:9092").routeId("bookFlightCompensation")
+        from("kafka:TravelBookingFailTopic?brokers=" + travelKafkaServer + "&groupId=" + travelServiceType).routeId("bookFlightCompensation")
                 .log("fired bookFlightCompensation")
                 .unmarshal().json(JsonLibrary.Jackson, ExceptionResponse.class)
                 .choice()
@@ -291,7 +313,7 @@ public class MicroTravelBookingService extends RouteBuilder {
     }
 
     private void payment() {
-        from("kafka:BookingInfoTopic?brokers=localhost:9092").routeId("paymentBookingInfo")
+        from("kafka:BookingInfoTopic?brokers=" + travelKafkaServer + "&groupId=" + travelServiceType).routeId("paymentBookingInfo")
                 .log("fired paymentBookingInfo")
                 .unmarshal().json(JsonLibrary.Jackson, BookingInfo.class)
                 .process(
@@ -308,7 +330,7 @@ public class MicroTravelBookingService extends RouteBuilder {
                 .when(header("isReady").isEqualTo(true)).to("direct:finalizePayment")
                 .endChoice();
 
-        from("kafka:TravelReqTopic?brokers=localhost:9092").routeId("paymentTravelReq")
+        from("kafka:TravelReqTopic?brokers=" + travelKafkaServer + "&groupId=" + travelServiceType).routeId("paymentTravelReq")
                 .log("fired paymentTravelReq")
                 .unmarshal().json(JsonLibrary.Jackson, BookTravelRequest.class)
                 .process(
@@ -342,7 +364,8 @@ public class MicroTravelBookingService extends RouteBuilder {
                 )
                 .to("direct:notification")
                 .marshal().json()
-                .to("kafka:TravelPaymentResultTopic?brokers=localhost:9092")
+                .setHeader(KafkaConstants.KEY, header("bookingTravelId"))
+                .to("kafka:TravelPaymentResultTopic?brokers=" + travelKafkaServer + "&groupId=" + travelServiceType)
         ;
 
         from("direct:notification").routeId("notification")

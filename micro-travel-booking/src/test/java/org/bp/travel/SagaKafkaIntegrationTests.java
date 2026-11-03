@@ -40,7 +40,8 @@ import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.*;
 
 @EnabledIfSystemProperty(named = "saga.kafka", matches = "true")
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
+    "travel.hazelcast.cluster-name=saga-kafka-tests", "travel.hazelcast.members=127.0.0.1"})
 @Import(SagaKafkaIntegrationTests.RealKafkaConfiguration.class)
 @DirtiesContext
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)

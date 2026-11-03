@@ -1,9 +1,10 @@
 package org.bp.travel;
 
 
-import java.util.HashMap;
+import java.io.Serializable;
 
-import jakarta.annotation.PostConstruct;
+import com.hazelcast.core.HazelcastInstance;
+import com.hazelcast.map.IMap;
 
 import org.bp.travel.model.BookTravelRequest;
 import org.bp.travel.model.BookingInfo;
@@ -11,14 +12,13 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class PaymentService {
-	private HashMap<String, PaymentData> payments;
-	
-	@PostConstruct
-	void init() {
-		payments=new HashMap<>();
+	private final IMap<String, PaymentData> payments;
+
+	public PaymentService(HazelcastInstance hazelcastInstance) {
+		payments=hazelcastInstance.getMap("payments");
 	}
-	
-	public static class PaymentData {
+
+	public static class PaymentData implements Serializable {
 		BookTravelRequest bookTravelRequest;
 		BookingInfo hotelBookingInfo;
 		BookingInfo flightBookingInfo;
@@ -26,36 +26,44 @@ public class PaymentService {
 			return bookTravelRequest!=null && hotelBookingInfo!=null && flightBookingInfo!=null;
 		}
 	}
-	
-	public synchronized boolean addBookTravelRequest(String bookTravelId, BookTravelRequest bookTravelRequest) {
-		PaymentData paymentData = getPaymentData(bookTravelId);
-		paymentData.bookTravelRequest=bookTravelRequest;		
-		return paymentData.isReady();
-	}
-	
 
-	public synchronized boolean addBookingInfo(String bookTravelId, BookingInfo bookingInfo, String serviceType) {
-		PaymentData paymentData = getPaymentData(bookTravelId);
-		if (serviceType.equals("flight"))
-			paymentData.flightBookingInfo=bookingInfo;
-		else 
-			paymentData.hotelBookingInfo=bookingInfo;		
-		return paymentData.isReady();
-	}	
-	
-	
-	public synchronized PaymentData getPaymentData(String bookTravelId) {
+	public boolean addBookTravelRequest(String bookTravelId, BookTravelRequest bookTravelRequest) {
+		payments.lock(bookTravelId);
+		try {
+			PaymentData paymentData = getPaymentData(bookTravelId);
+			paymentData.bookTravelRequest=bookTravelRequest;
+			payments.set(bookTravelId, paymentData);
+			return paymentData.isReady();
+		}
+		finally {
+			payments.unlock(bookTravelId);
+		}
+	}
+
+
+	public boolean addBookingInfo(String bookTravelId, BookingInfo bookingInfo, String serviceType) {
+		payments.lock(bookTravelId);
+		try {
+			PaymentData paymentData = getPaymentData(bookTravelId);
+			if (serviceType.equals("flight"))
+				paymentData.flightBookingInfo=bookingInfo;
+			else
+				paymentData.hotelBookingInfo=bookingInfo;
+			payments.set(bookTravelId, paymentData);
+			return paymentData.isReady();
+		}
+		finally {
+			payments.unlock(bookTravelId);
+		}
+	}
+
+
+	public PaymentData getPaymentData(String bookTravelId) {
 		PaymentData paymentData = payments.get(bookTravelId);
 		if (paymentData==null) {
 			paymentData = new PaymentData();
-			payments.put(bookTravelId, paymentData);
 		}
 		return paymentData;
 	}
-
-	
-
-
-	
 
 }
