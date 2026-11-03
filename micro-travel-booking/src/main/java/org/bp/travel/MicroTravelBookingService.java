@@ -129,7 +129,7 @@ public class MicroTravelBookingService extends RouteBuilder {
                 .to("kafka:TravelReqTopic?brokers=localhost:9092")
         ;
 
-        from("kafka:TravelPaymentResultTopic?brokers=localhost:9092&groupId=travel-gateway")
+        from("kafka:TravelPaymentResultTopic?brokers=localhost:9092")
                 .routeId("gatewayPaymentResult")
                 .unmarshal().json(JsonLibrary.Jackson, BookingInfo.class)
                 .process(exchange -> bookingInfoService.save(exchange.getMessage().getBody(BookingInfo.class)));
