@@ -30,7 +30,8 @@ import tools.jackson.databind.json.JsonMapper;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
+    "travel.hazelcast.cluster-name=rest-integration-tests", "travel.hazelcast.members=127.0.0.1"})
 @Import(BookingRestIntegrationTests.IsolatedTransports.class)
 class BookingRestIntegrationTests {
     @LocalServerPort

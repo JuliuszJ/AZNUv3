@@ -6,6 +6,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import com.hazelcast.config.Config;
+import com.hazelcast.config.JoinConfig;
+import com.hazelcast.core.Hazelcast;
+import com.hazelcast.core.HazelcastInstance;
+import com.hazelcast.map.IMap;
 import org.apache.camel.Exchange;
 import org.apache.camel.ProducerTemplate;
 import org.apache.camel.builder.AdviceWith;
@@ -17,11 +22,14 @@ import org.bp.travel.model.BookTravelRequest;
 import org.bp.travel.model.BookingInfo;
 import org.bp.travel.model.ExceptionResponse;
 import org.bp.travel.state.StateService;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.springframework.test.util.ReflectionTestUtils;
 import tools.jackson.databind.json.JsonMapper;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -30,20 +38,46 @@ class LegacyBookingFlowTests {
     private final JsonMapper json = JsonMapper.builder().build();
     private DefaultCamelContext context;
     private ProducerTemplate producer;
+    private static HazelcastInstance hazelcast;
     private BookingInfoService bookingInfoService;
     private PaymentService paymentService;
 
+    @BeforeAll
+    static void startStandaloneHazelcast() {
+        Config hazelcastConfig = new Config();
+        hazelcastConfig.setClusterName("legacy-flow-tests-" + UUID.randomUUID());
+        hazelcastConfig.setProperty("hazelcast.phone.home.enabled", "false");
+        JoinConfig join = hazelcastConfig.getNetworkConfig().getJoin();
+        join.getAutoDetectionConfig().setEnabled(false);
+        join.getMulticastConfig().setEnabled(false);
+        hazelcast = Hazelcast.newHazelcastInstance(hazelcastConfig);
+    }
+
+    @AfterAll
+    static void stopHazelcast() {
+        hazelcast.shutdown();
+    }
+
     @BeforeEach
     void startRoutesWithoutExternalServices() throws Exception {
+        // Each scenario starts with empty shared state.
+        for (var object : hazelcast.getDistributedObjects()) {
+            if (object instanceof IMap<?, ?> map) {
+                map.clear();
+            }
+        }
         ApplicationConfig config = new ApplicationConfig();
-        paymentService = new PaymentService();
-        paymentService.init();
-        bookingInfoService = new BookingInfoService();
-        context = new DefaultCamelContext();
-        context.addRoutes(new MicroTravelBookingService(
+        paymentService = new PaymentService(hazelcast);
+        bookingInfoService = new BookingInfoService(hazelcast);
+        MicroTravelBookingService service = new MicroTravelBookingService(
             new BookingIdentifierService(), paymentService,
-            new StateService(config.basicStateMachineBuilder()),
-            new StateService(config.basicStateMachineBuilder()), bookingInfoService));
+            new StateService(config.basicStateMachineBuilder(), hazelcast.getMap("flightStates")),
+            new StateService(config.basicStateMachineBuilder(), hazelcast.getMap("hotelStates")),
+            bookingInfoService);
+        ReflectionTestUtils.setField(service, "travelKafkaServer", "localhost:9092");
+        ReflectionTestUtils.setField(service, "travelServiceType", "all");
+        context = new DefaultCamelContext();
+        context.addRoutes(service);
 
         // These tests exercise the processing routes, not REST transport.
         context.getRestDefinitions().clear();
@@ -292,7 +326,8 @@ class LegacyBookingFlowTests {
         send("direct:test-paymentBookingInfo", json.writeValueAsString(lateSuccess),
             Map.of("bookingTravelId", id, "serviceType", failedService));
 
-        assertTrue(retained.isReady());
+        // The shared map returns copies, so read the stored data again.
+        assertTrue(paymentService.getPaymentData(id).isReady());
         assertCount("notification", 1);
         assertEquals(BookingInfo.StatusEnum.DONE,
             only("notification").getMessage().getBody(BookingInfo.class).getStatus());

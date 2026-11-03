@@ -1,14 +1,18 @@
 package org.bp.travel;
 
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
+import com.hazelcast.core.HazelcastInstance;
 import org.bp.travel.model.BookingInfo;
 import org.springframework.stereotype.Service;
 
 @Service
 public class BookingInfoService {
-    private final Map<String, BookingInfo> bookings = new ConcurrentHashMap<>();
+    private final Map<String, BookingInfo> bookings;
+
+    public BookingInfoService(HazelcastInstance hazelcastInstance) {
+        bookings = hazelcastInstance.getMap("bookings");
+    }
 
     public void save(BookingInfo bookingInfo) {
         bookings.compute(bookingInfo.getId(), (id, current) ->

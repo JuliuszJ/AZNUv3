@@ -13,6 +13,10 @@ public class StateMachineBuilder {
 		this.initialState=initialState;
 		return this;
 	}
+
+	public ProcessingState getInitialState() {
+		return initialState;
+	}
 	
 	public StateMachineBuilder add(ProcessingState source, ProcessingEvent event, ProcessingState target) {
 		HashMap<ProcessingEvent, ProcessingState> transitionsForSource= transitions.get(source);

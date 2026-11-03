@@ -1,40 +1,33 @@
 package org.bp.travel.state;
 
-
-import java.util.HashMap;
-
-import jakarta.annotation.PostConstruct;
-
-import org.bp.travel.model.BookTravelRequest;
-import org.bp.travel.model.BookingInfo;
-import org.springframework.stereotype.Service;
-
+import com.hazelcast.map.IMap;
 
 public class StateService {
-	private HashMap<String, StateMachine> processingStates=new HashMap<>();
+	private final IMap<String, ProcessingState> processingStates;
+	private final StateMachineBuilder stateMachineBuilder;
 
-	public StateService(StateMachineBuilder stateMachineBuilder) {
+	public StateService(StateMachineBuilder stateMachineBuilder, IMap<String, ProcessingState> processingStates) {
 		this.stateMachineBuilder = stateMachineBuilder;
+		this.processingStates = processingStates;
 	}
 
-
-	private StateMachineBuilder stateMachineBuilder = null;
-
 	public ProcessingState sendEvent(String bookingId, ProcessingEvent event) {
-		StateMachine stateMachine;
-		synchronized(this){
-			stateMachine = processingStates.get(bookingId);
-			if (stateMachine==null) {
-				stateMachine=stateMachineBuilder.build();
-				processingStates.put(bookingId, stateMachine);
+		processingStates.lock(bookingId);
+		try {
+			ProcessingState previousState = processingStates.get(bookingId);
+			if (previousState==null) {
+				previousState=stateMachineBuilder.getInitialState();
 			}
+			processingStates.set(bookingId, stateMachineBuilder.sendEvent(previousState, event));
+			return previousState;
 		}
-		return stateMachine.sendEvent(event);
-		
+		finally {
+			processingStates.unlock(bookingId);
+		}
 	}
 
 	public void removeState(String bookingId) {
-		processingStates.remove(bookingId);
+		processingStates.delete(bookingId);
 	}
 
 }
